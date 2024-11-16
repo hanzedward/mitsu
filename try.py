@@ -61,65 +61,70 @@ def create_db():
 
     c.execute('''
        CREATE TABLE IF NOT EXISTS subjects (
-    subject_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    subject_code TEXT NOT NULL UNIQUE,
-    subject_name TEXT NOT NULL
-    )
+           subject_id INTEGER PRIMARY KEY AUTOINCREMENT,
+           subject_code TEXT NOT NULL UNIQUE,
+           subject_name TEXT NOT NULL
+       )
     ''')
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
-    task_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    subject_id INTEGER,
-    task_quantity INTEGER,
-    task_description TEXT NOT NULL,
-    FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
-)
-
+            task_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subject_id INTEGER,
+            task_quantity INTEGER,
+            task_description TEXT NOT NULL,
+            FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
+        )
     ''')
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS task_dates (
-    task_date_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER,
-    task_year INTEGER,
-    task_month TEXT,
-    task_day INTEGER,
-    FOREIGN KEY (task_id) REFERENCES tasks(task_id)
-)
-
+            task_date_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER,
+            task_year INTEGER,
+            task_month TEXT,
+            task_day INTEGER,
+            FOREIGN KEY (task_id) REFERENCES tasks(task_id)
+        )
     ''')
 
     c.execute('''
        CREATE TABLE IF NOT EXISTS task_times (
-    task_time_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER,
-    task_time TEXT,
-    task_period TEXT,  -- AM or PM
-    FOREIGN KEY (task_id) REFERENCES tasks(task_id)
-)
-
+            task_time_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER,
+            task_time TEXT,
+            task_period TEXT,  -- AM or PM
+            FOREIGN KEY (task_id) REFERENCES tasks(task_id)
+        )
     ''')
 
     c.execute('''
     CREATE TABLE IF NOT EXISTS history (
-    history_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER,
-    task_description TEXT,
-    subject_code TEXT,
-    task_quantity INTEGER,
-    task_year INTEGER,
-    task_month TEXT,
-    task_day INTEGER,
-    task_time TEXT,
-    task_period TEXT,
-    deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+        history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER,
+        task_description TEXT,
+        subject_code TEXT,
+        task_quantity INTEGER,
+        task_year INTEGER,
+        task_month TEXT,
+        task_day INTEGER,
+        task_time TEXT,
+        task_period TEXT,
+        deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
 
- ''')
+    c.execute("PRAGMA table_info(tasks)") 
+    columns = [column[1] for column in c.fetchall()]
+
+    if 'done' not in columns:
+        c.execute('ALTER TABLE tasks ADD COLUMN done INTEGER DEFAULT 0') 
+        conn.commit()
 
     conn.commit()
     conn.close()
+
+create_db()
 
 
 def save_task():
@@ -134,19 +139,17 @@ def save_task():
         conn = sqlite3.connect('tasks.db')
         c = conn.cursor()
 
-        subject_code = subject[:3].upper()  
+        subject_code = subject[:3].upper() 
 
-    
         c.execute("SELECT subject_id FROM subjects WHERE subject_code = ?", (subject_code,))
         result = c.fetchone()
 
         if result: 
             subject_id = result[0]
-        else:  
+        else:
             c.execute("INSERT INTO subjects (subject_code, subject_name) VALUES (?, ?)", (subject_code, subject))
-            subject_id = c.lastrowid  
+            subject_id = c.lastrowid 
 
-        
         c.execute('''
             INSERT INTO tasks (task_description, subject_id, task_quantity) 
             VALUES (?, ?, ?)
@@ -158,7 +161,6 @@ def save_task():
         task_listbox.insert(tk.END, f"{subject} - {task} - {due_date} - {time}")
         subject_entry.delete(0, tk.END)
         task_entry.delete(0, tk.END)
-
 
 
 
@@ -192,34 +194,33 @@ def mark_task_done():
         messagebox.showinfo("Task Already Done", "This task is already marked as done.")
         return
 
-    
+    updated_task_text = f"{task_text} ✔"
+    task_listbox.delete(selected_task_index)
+    task_listbox.insert(selected_task_index, updated_task_text)
+
     task_details = task_text.split(' - ')
     subject_name = task_details[0]  
-    task_description = task_details[1]  
-    task_due_date = f"{task_details[2]} {task_details[3]} {task_details[4]}"
-    
+    task_description = task_details[1] 
+
     conn = sqlite3.connect('tasks.db')
     c = conn.cursor()
     c.execute('''
-        SELECT task_id FROM tasks 
+        SELECT task_id FROM tasks
         JOIN subjects ON tasks.subject_id = subjects.subject_id
         WHERE tasks.task_description = ? AND subjects.subject_name = ?
     ''', (task_description, subject_name))
     result = c.fetchone()
 
     if result:
-        task_id = result[0] 
+        task_id = result[0]  
 
         c.execute('''
             UPDATE tasks
-            SET done = 1
+            SET done = 1  -- Set the task as done
             WHERE task_id = ?
         ''', (task_id,))
         conn.commit()
         conn.close()
-
-        task_listbox.delete(selected_task_index)
-        task_listbox.insert(selected_task_index, f"{task_text} ✔")
     else:
         messagebox.showwarning("Error", "Task not found in the database.")
 
@@ -248,7 +249,6 @@ def remove_task():
 
         conn.commit()
         conn.close()
-
 
 def go_home():
     switch_screen(screen_1, screen_2)
@@ -453,5 +453,6 @@ reset_button = tk.Button(screen_3, image=reset_photo, command=reset_history, rel
 reset_button.place(x=400, y=432)
 
 root.mainloop()
+
 
 
